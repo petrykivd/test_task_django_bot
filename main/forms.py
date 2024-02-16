@@ -1,6 +1,7 @@
 from django import forms
+from django.forms import CheckboxSelectMultiple
 
-from main.models import User
+from main.models import User, Message
 
 
 class ProfileForm(forms.ModelForm):
@@ -10,7 +11,6 @@ class ProfileForm(forms.ModelForm):
             "tg_user_id",
             "username",
             "first_name",
-            "chat_id",
             "date_joined",
         )
         widgets = {
@@ -18,3 +18,10 @@ class ProfileForm(forms.ModelForm):
             "first_name": forms.TextInput,
 
         }
+
+
+class MessageForm(forms.ModelForm):
+    user = forms.ModelMultipleChoiceField(queryset=User.objects.all(), widget=CheckboxSelectMultiple, required=True)
+    class Meta:
+        model = Message
+        fields = ['user', 'text']
