@@ -3,55 +3,69 @@ import logging
 import sys
 from os import getenv
 
-from aiogram import Bot, Dispatcher, Router, types
+from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
+from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.utils.markdown import hbold
+from channels.db import database_sync_to_async
+from django.core.management import BaseCommand
 from dotenv import load_dotenv
+
+from main.models import User
 
 load_dotenv()
 
 TOKEN = getenv("BOT_TOKEN")
+
 dp = Dispatcher()
 
+bot = Bot(TOKEN, parse_mode=ParseMode.HTML)
 
-@dp.message(CommandStart())
+
+@dp.message(Command("start"))
 async def command_start_handler(message: Message) -> None:
-    """
-    This handler receives messages with `/start` command
-    """
-    # Most event objects have aliases for API methods that can be called in events' context
-    # For example if you want to answer to incoming message you can use `message.answer(...)` alias
-    # and the target chat will be passed to :ref:`aiogram.methods.send_message.SendMessage`
-    # method automatically or call API method directly via
-    # Bot instance: `bot.send_message(chat_id=message.chat.id, ...)`
-    await message.answer(f"Hello, {hbold(message.from_user.full_name)}!")
+    if await user_exists(message):
+        await message.answer(f"Hello, {hbold(message.from_user.full_name)}!")
+    else:
+        await register_user(message)
+        await message.answer(f"Welcome, {hbold(message.from_user.full_name)}!")
+        await message.answer("Registration successful 👍")
 
 
 @dp.message()
 async def echo_handler(message: types.Message) -> None:
-    """
-    Handler will forward receive a message back to the sender
-
-    By default, message handler will handle all message types (like a text, photo, sticker etc.)
-    """
-    try:
-        # Send a copy of the received message
-        await message.send_copy(chat_id=message.chat.id)
-    except TypeError:
-        # But not all the types is supported to be copied so need to handle it
-        await message.answer("Nice try!")
+    await message.answer("It is being developed 👨‍💻")
 
 
-async def main() -> None:
-    # Initialize Bot instance with a default parse mode which will be passed to all API calls
-    print(TOKEN)
-    bot = Bot(TOKEN, parse_mode=ParseMode.HTML)
-    # And the run events dispatching
+async def main(bot) -> None:
     await dp.start_polling(bot)
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    asyncio.run(main())
+@database_sync_to_async
+def user_exists(message):
+    if User.objects.filter(tg_user_id=message.from_user.id).exists():
+        return True
+    return False
+
+
+@database_sync_to_async
+def register_user(message):
+    tg_user_id = message.from_user.id
+    username = message.from_user.username
+    first_name = message.from_user.first_name
+
+    User.objects.create(
+        tg_user_id=tg_user_id,
+        username=username,
+        first_name=first_name
+    )
+
+
+class Command(BaseCommand):
+    """Django command to pause execution until db is available"""
+
+    def handle(self, *args, **options):
+        logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+        asyncio.run(main(bot=bot))
+
