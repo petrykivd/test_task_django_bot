@@ -1,5 +1,4 @@
 # test_task_django_bot
-# Django Telegram Bot
 
 This project is created to register users via Telegram bot and send them messages.
 
